@@ -27,7 +27,7 @@
 <div class="row"><button id="generate">⚡ Generate Command</button><button class="secondary" id="clear">Clear</button></div>
 <div class="examples">Try one:
 <span class="chip" data-q="orbital strike cannon">Orbital strike</span>
-<span class="chip" data-q="lightning cannon">Lightning cannon</span>
+<span class="chip" data-q="lightning cannon">Lightning cannon</span><span class="chip" data-q="fishing rod lightning anywhere">🎣 Anywhere rod</span>
 <span class="chip" data-q="teleport me to 100 70 -30">Teleport</span>
 <span class="chip" data-q="give me a diamond sword">Diamond sword</span>
 <span class="chip" data-q="make it rain">Rain</span>
@@ -45,7 +45,7 @@
 <section class="card history">
 <h2>History</h2><div id="history"><div class="empty">Your generated commands will appear here.</div></div>
 </section>
-<footer>100% client-side • No API key required • Single HTML file</footer>
+<footer>100% client-side • No API key required • Single HTML file • Bedrock command templates</footer>
 </div>
 
 <script>
@@ -66,7 +66,11 @@ function escapeHtml(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>
 function generate(){
  const q=request.value.trim(), x=q.toLowerCase();
  if(!q){request.focus();return}
- if(/orbital strike|airstrike|air strike/.test(x)){
+ if(/fishing rod|fishing.*anywhere|rod.*anywhere/.test(x)){
+   result('/give @s fishing_rod 1\n/give @s command_block 2\n/tickingarea add circle ~ ~ ~ 4 rod_controller true\n\n[Repeating Command Block — Always Active]\n/execute as @e[type=fishing_hook,tag=!rod_struck] at @s run summon lightning_bolt ~ ~ ~\n\n[Chain Command Block — Always Active]\n/tag @e[type=fishing_hook,tag=!rod_struck] add rod_struck',
+   '🎣 Gives you a fishing rod that triggers a lightning strike at the fishing hook location. Cast it anywhere you can reach; the command system follows the hook position.',
+   'Setup: run the first three commands once, then place the repeating command block followed by the chain command block. Cheats/command blocks are required. The ticking area keeps the controller active; Bedrock ticking areas are limited to a maximum radius of 4 chunks.'); 
+ } else if(/orbital strike|airstrike|air strike/.test(x)){
    result('/summon lightning_bolt ~ ~ ~\n/summon tnt ~ ~ ~\n/summon tnt ~ ~ ~',
    'A simple Bedrock-friendly strike sequence. Run the three commands in order at the target location.',
    'For a real reusable cannon, put these commands in command blocks or a function and trigger them from a button/lever.');
