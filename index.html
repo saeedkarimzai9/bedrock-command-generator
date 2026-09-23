@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bedrock Command Forge</title>
+<style>
+:root{--bg:#080b10;--panel:#10151d;--panel2:#151c26;--line:#263241;--text:#f3f7fb;--muted:#9aa8b7;--accent:#55e38e;--accent2:#39bdf8;--danger:#ff6b6b}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:radial-gradient(circle at 20% 0%,#10221a 0,#080b10 42%),var(--bg);color:var(--text);min-height:100vh}
+.wrap{width:min(1050px,92%);margin:auto;padding:44px 0 60px}.hero{text-align:center;margin-bottom:28px}.badge{display:inline-block;padding:7px 12px;border:1px solid #2d6547;border-radius:999px;color:var(--accent);font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:#0c1a13}.hero h1{font-size:clamp(36px,7vw,66px);line-height:1;margin:15px 0 12px}.hero p{color:var(--muted);font-size:17px;margin:0 auto;max-width:700px}
+.card{background:linear-gradient(180deg,#121923,#0e131a);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 20px 70px #0008;margin-top:18px}label{display:block;font-weight:800;margin-bottom:10px}textarea{width:100%;min-height:125px;resize:vertical;background:#090d12;color:var(--text);border:1px solid #2a3645;border-radius:14px;padding:16px;font:inherit;font-size:16px;outline:none}textarea:focus{border-color:var(--accent2);box-shadow:0 0 0 3px #39bdf81a}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}button{border:0;border-radius:11px;padding:11px 15px;font-weight:800;cursor:pointer;color:#07100b;background:var(--accent)}button.secondary{background:#202b38;color:var(--text)}button:hover{filter:brightness(1.08)}.examples{margin-top:17px;color:var(--muted);font-size:13px}.chip{display:inline-block;margin:7px 6px 0 0;padding:7px 10px;border:1px solid #304052;border-radius:999px;background:#111923;color:#cbd6e0;cursor:pointer}.chip:hover{border-color:#55e38e;color:#fff}
+.output{display:none}.output.show{display:block}.outhead{display:flex;justify-content:space-between;align-items:center;gap:10px}.outhead h2{margin:0;font-size:20px}.command{margin-top:12px;background:#070a0e;border:1px solid #263442;border-radius:13px;padding:16px;overflow:auto;font-family:Consolas,monospace;white-space:pre-wrap;color:#bafbd0;line-height:1.55}.explain{margin-top:13px;color:#b8c4d0;line-height:1.6}.warning{color:#ffd28a;margin-top:10px;font-size:13px}.history h2{margin-top:0}.history-item{padding:11px 0;border-bottom:1px solid #202a35}.history-item:last-child{border-bottom:0}.history-item b{display:block}.history-item code{display:block;color:#8feeb0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px}.empty{color:var(--muted);font-size:14px}footer{text-align:center;color:#687686;font-size:12px;margin-top:28px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<section class="hero">
+<span class="badge">Minecraft Bedrock</span>
+<h1>Bedrock Command Forge</h1>
+<p>Describe what you want to build or trigger in Minecraft Bedrock and get a command or command sequence you can paste into chat.</p>
+</section>
+
+<section class="card">
+<label for="request">What do you want?</label>
+<textarea id="request" placeholder="Example: I want an orbital strike cannon"></textarea>
+<div class="row"><button id="generate">⚡ Generate Command</button><button class="secondary" id="clear">Clear</button></div>
+<div class="examples">Try one:
+<span class="chip" data-q="orbital strike cannon">Orbital strike</span>
+<span class="chip" data-q="lightning cannon">Lightning cannon</span>
+<span class="chip" data-q="teleport me to 100 70 -30">Teleport</span>
+<span class="chip" data-q="give me a diamond sword">Diamond sword</span>
+<span class="chip" data-q="make it rain">Rain</span>
+<span class="chip" data-q="summon a zombie">Zombie</span>
+</div>
+</section>
+
+<section class="card output" id="output">
+<div class="outhead"><h2>Generated Bedrock command</h2><button class="secondary" id="copy">Copy</button></div>
+<div class="command" id="command"></div>
+<div class="explain" id="explain"></div>
+<div class="warning" id="warning"></div>
+</section>
+
+<section class="card history">
+<h2>History</h2><div id="history"><div class="empty">Your generated commands will appear here.</div></div>
+</section>
+<footer>100% client-side • No API key required • Single HTML file</footer>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const request=$('#request'), output=$('#output'), command=$('#command'), explain=$('#explain'), warning=$('#warning'), history=$('#history');
+let items=JSON.parse(localStorage.getItem('bedrockForgeHistory')||'[]');
+
+function result(cmd, text, warn=''){
+  command.textContent=cmd; explain.textContent=text; warning.textContent=warn; output.classList.add('show');
+  items.unshift({q:request.value.trim(),cmd}); items=items.slice(0,10);
+  localStorage.setItem('bedrockForgeHistory',JSON.stringify(items)); renderHistory();
+}
+function renderHistory(){
+  history.innerHTML=items.length?items.map((x,i)=>'<div class="history-item"><b>'+escapeHtml(x.q||'Untitled')+'</b><code>'+escapeHtml(x.cmd.replace(/\n/g,' • '))+'</code></div>').join(''):'<div class="empty">Your generated commands will appear here.</div>';
+}
+function escapeHtml(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function generate(){
+ const q=request.value.trim(), x=q.toLowerCase();
+ if(!q){request.focus();return}
+ if(/orbital strike|airstrike|air strike/.test(x)){
+   result('/summon lightning_bolt ~ ~ ~\n/summon tnt ~ ~ ~\n/summon tnt ~ ~ ~',
+   'A simple Bedrock-friendly strike sequence. Run the three commands in order at the target location.',
+   'For a real reusable cannon, put these commands in command blocks or a function and trigger them from a button/lever.');
+ } else if(/lightning cannon|lightning/.test(x)){
+   result('/summon lightning_bolt ~ ~ ~','Summons a lightning bolt at your current position.');
+ } else if(/rain|make it rain/.test(x)){
+   result('/weather rain','Changes the weather to rain.');
+ } else if(/clear weather|stop rain|no rain/.test(x)){
+   result('/weather clear','Clears the weather.');
+ } else if(/thunder/.test(x)){
+   result('/weather thunder','Sets thunder weather.');
+ } else if(/zombie/.test(x)){
+   result('/summon zombie ~ ~ ~','Summons a zombie at your current position.');
+ } else if(/creeper/.test(x)){
+   result('/summon creeper ~ ~ ~','Summons a creeper at your current position.');
+ } else if(/skeleton/.test(x)){
+   result('/summon skeleton ~ ~ ~','Summons a skeleton at your current position.');
+ } else if(/diamond sword|sword/.test(x)){
+   result('/give @s diamond_sword 1','Gives you one diamond sword.');
+ } else if(/diamond|give me a diamond/.test(x)){
+   result('/give @s diamond 1','Gives you one diamond.');
+ } else if(/creative/.test(x)){
+   result('/gamemode creative @s','Switches you to Creative mode.');
+ } else if(/survival/.test(x)){
+   result('/gamemode survival @s','Switches you to Survival mode.');
+ } else if(/day|make it day/.test(x)){
+   result('/time set day','Sets the time to day.');
+ } else if(/night|make it night/.test(x)){
+   result('/time set night','Sets the time to night.');
+ } else if(/kill me|suicide/.test(x)){
+   result('/kill @s','Kills your own player.');
+ } else if(/teleport|tp/.test(x)){
+   const m=x.match(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/);
+   if(m) result('/tp @s '+m[1]+' '+m[2]+' '+m[3],'Teleports you to the coordinates you entered.');
+   else result('/tp @s ~ ~ ~','Teleport template: replace ~ ~ ~ with your desired X Y Z coordinates.');
+ } else if(/tnt/.test(x)){
+   result('/summon tnt ~ ~ ~','Summons primed TNT at your current position.');
+ } else {
+   result('/help','I do not have a built-in template for that request yet. Try one of the example requests below.','This version is fully local and does not use an AI API. More templates can be added to this one HTML file.');
+ }
+}
+$('#generate').onclick=generate;
+request.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')generate()});
+$('#clear').onclick=()=>{request.value='';output.classList.remove('show');request.focus()};
+$('#copy').onclick=async()=>{try{await navigator.clipboard.writeText(command.textContent);$('#copy').textContent='Copied!';setTimeout(()=>$('#copy').textContent='Copy',1200)}catch(e){alert('Copy failed. Select the command and copy it manually.')}};
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{request.value=c.dataset.q;generate()});
+renderHistory();
+</script>
+</body>
+</html>
