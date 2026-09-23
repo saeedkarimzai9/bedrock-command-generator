@@ -36,87 +36,349 @@
 </section>
 
 <section class="card output" id="output">
-<div class="outhead"><h2>Generated Bedrock command</h2><button class="secondary" id="copy">Copy</button></div>
+<div class="outhead"><h2>Generated Bedrock commands</h2><button class="secondary" id="copy">Copy commands</button></div>
 <div class="command" id="command"></div>
 <div class="explain" id="explain"></div>
 <div class="warning" id="warning"></div>
 </section>
 
 <section class="card history">
-<h2>History</h2><div id="history"><div class="empty">Your generated commands will appear here.</div></div>
+<div class="outhead"><h2>History</h2><button class="secondary" id="clearHistory">Clear history</button></div><div id="history"><div class="empty">Your generated commands will appear here.</div></div>
 </section>
 <footer>100% client-side • No API key required • Single HTML file • Bedrock command templates</footer>
 </div>
 
 <script>
 const $=s=>document.querySelector(s);
-const request=$('#request'), output=$('#output'), command=$('#command'), explain=$('#explain'), warning=$('#warning'), history=$('#history');
-let items=JSON.parse(localStorage.getItem('bedrockForgeHistory')||'[]');
+const request=$('#request');
+const output=$('#output');
+const command=$('#command');
+const explain=$('#explain');
+const warning=$('#warning');
+const history=$('#history');
+const copyButton=$('#copy');
+const STORAGE_KEY='bedrockForgeHistory';
 
-function result(cmd, text, warn=''){
-  command.textContent=cmd; explain.textContent=text; warning.textContent=warn; output.classList.add('show');
-  items.unshift({q:request.value.trim(),cmd}); items=items.slice(0,10);
-  localStorage.setItem('bedrockForgeHistory',JSON.stringify(items)); renderHistory();
+let items=loadHistory();
+let currentCopyText='';
+
+function loadHistory(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    const parsed=raw?JSON.parse(raw):[];
+    return Array.isArray(parsed)?parsed.filter(x=>x&&typeof x==='object'&&typeof x.cmd==='string').slice(0,10):[];
+  }catch{
+    localStorage.removeItem(STORAGE_KEY);
+    return [];
+  }
 }
+
+function saveHistory(){
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(items));}catch{}
+}
+
+function escapeHtml(value){
+  return String(value??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+function addHistory(q,cmd){
+  const entry={q:q||'Untitled',cmd};
+  items=[entry,...items.filter(x=>!(x.q===entry.q&&x.cmd===entry.cmd))].slice(0,10);
+  saveHistory();
+  renderHistory();
+}
+
 function renderHistory(){
-  history.innerHTML=items.length?items.map((x,i)=>'<div class="history-item"><b>'+escapeHtml(x.q||'Untitled')+'</b><code>'+escapeHtml(x.cmd.replace(/\n/g,' • '))+'</code></div>').join(''):'<div class="empty">Your generated commands will appear here.</div>';
+  history.innerHTML=items.length
+    ?items.map(x=>'<div class="history-item"><b>'+escapeHtml(x.q||'Untitled')+'</b><code>'+escapeHtml(x.cmd.replace(/\n/g,' • '))+'</code></div>').join('')
+    :'<div class="empty">Your generated commands will appear here.</div>';
 }
-function escapeHtml(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function result(cmd,text,warn='',copyText=cmd){
+  command.textContent=cmd;
+  explain.textContent=text;
+  warning.textContent=warn;
+  currentCopyText=copyText;
+  output.classList.add('show');
+  copyButton.textContent='Copy commands';
+  addHistory(request.value.trim(),cmd);
+  output.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function copyFallback(text){
+  const area=document.createElement('textarea');
+  area.value=text;
+  area.style.position='fixed';
+  area.style.opacity='0';
+  document.body.appendChild(area);
+  area.focus();
+  area.select();
+  let ok=false;
+  try{ok=document.execCommand('copy');}catch{}
+  area.remove();
+  return ok;
+}
+
+async function copyCommands(){
+  const text=currentCopyText||command.textContent;
+  if(!text)return;
+  let ok=false;
+  try{
+    if(navigator.clipboard&&window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+      ok=true;
+    }else{
+      ok=copyFallback(text);
+    }
+  }catch{
+    ok=copyFallback(text);
+  }
+  copyButton.textContent=ok?'Copied!':'Copy failed';
+  setTimeout(()=>copyButton.textContent='Copy commands',1200);
+}
+
+function getAmount(text,max=64){
+  const m=text.match(/\b(\d{1,3})\b/);
+  if(!m)return 1;
+  const n=Number(m[1]);
+  return Number.isInteger(n)&&n>=1&&n<=max?n:1;
+}
 
 function generate(){
- const q=request.value.trim(), x=q.toLowerCase();
- if(!q){request.focus();return}
- if(/fishing rod|fishing.*anywhere|rod.*anywhere/.test(x)){
-   result('/give @s fishing_rod 1\n/give @s command_block 3\n/tickingarea add circle ~ ~ ~ 4 rod_controller true\n\n[Repeating Command Block — Always Active]\n/execute as @a at @s as @e[type=fishing_hook,tag=!tnt_rod,r=128] at @s run summon tnt ~ ~ ~\n\n[Chain Command Block — Always Active]\n/execute as @a at @s as @e[type=fishing_hook,tag=!tnt_rod,r=128] run tag @s add tnt_rod',
-   '🎣 True long-distance TNT rod: the controller follows every online player with /execute as @a at @s, then finds nearby fishing hooks and summons TNT at each hook. Because the command block itself is kept running by a ticking area, you can travel far from where you first placed it.',
-   'This is designed for long-distance use, including roughly 1,000+ blocks away. Cheats/command blocks are required. The player must be online and the fishing hook must be in the active simulation area; the ticking area keeps the controller running, but it does not make an unloaded hook simulate forever. Ticking areas are limited to a radius of 4 chunks.'); 
- else if(/orbital strike|airstrike|air strike/.test(x)){
-   result('/summon lightning_bolt ~ ~ ~\n/summon tnt ~ ~ ~\n/summon tnt ~ ~ ~',
-   'A simple Bedrock-friendly strike sequence. Run the three commands in order at the target location.',
-   'For a real reusable cannon, put these commands in command blocks or a function and trigger them from a button/lever.');
- } else if(/lightning cannon|lightning/.test(x)){
-   result('/summon lightning_bolt ~ ~ ~','Summons a lightning bolt at your current position.');
- } else if(/rain|make it rain/.test(x)){
-   result('/weather rain','Changes the weather to rain.');
- } else if(/clear weather|stop rain|no rain/.test(x)){
-   result('/weather clear','Clears the weather.');
- } else if(/thunder/.test(x)){
-   result('/weather thunder','Sets thunder weather.');
- } else if(/zombie/.test(x)){
-   result('/summon zombie ~ ~ ~','Summons a zombie at your current position.');
- } else if(/creeper/.test(x)){
-   result('/summon creeper ~ ~ ~','Summons a creeper at your current position.');
- } else if(/skeleton/.test(x)){
-   result('/summon skeleton ~ ~ ~','Summons a skeleton at your current position.');
- } else if(/diamond sword|sword/.test(x)){
-   result('/give @s diamond_sword 1','Gives you one diamond sword.');
- } else if(/diamond|give me a diamond/.test(x)){
-   result('/give @s diamond 1','Gives you one diamond.');
- } else if(/creative/.test(x)){
-   result('/gamemode creative @s','Switches you to Creative mode.');
- } else if(/survival/.test(x)){
-   result('/gamemode survival @s','Switches you to Survival mode.');
- } else if(/day|make it day/.test(x)){
-   result('/time set day','Sets the time to day.');
- } else if(/night|make it night/.test(x)){
-   result('/time set night','Sets the time to night.');
- } else if(/kill me|suicide/.test(x)){
-   result('/kill @s','Kills your own player.');
- } else if(/teleport|tp/.test(x)){
-   const m=x.match(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/);
-   if(m) result('/tp @s '+m[1]+' '+m[2]+' '+m[3],'Teleports you to the coordinates you entered.');
-   else result('/tp @s ~ ~ ~','Teleport template: replace ~ ~ ~ with your desired X Y Z coordinates.');
- } else if(/tnt/.test(x)){
-   result('/summon tnt ~ ~ ~','Summons primed TNT at your current position.');
- } else {
-   result('/help','I do not have a built-in template for that request yet. Try one of the example requests below.','This version is fully local and does not use an AI API. More templates can be added to this one HTML file.');
- }
+  const q=request.value.trim();
+  const x=q.toLowerCase().replace(/\s+/g,' ');
+  if(!q){request.focus();return;}
+
+  // Long-distance fishing rod TNT controller.
+  if(/\bfishing rod\b|\bfishing\b.*\banywhere\b|\banywhere\b.*\brod\b/.test(x)){
+    const display=[
+      '/give @s fishing_rod 1',
+      '/give @s command_block 3',
+      '/tickingarea add circle ~ ~ ~ 4 rod_controller true',
+      '',
+      '[Repeating Command Block — Always Active]',
+      '/execute as @a at @s as @e[type=fishing_hook,tag=!tnt_rod,r=128] at @s run summon tnt ~ ~ ~',
+      '',
+      '[Chain Command Block — Always Active]',
+      '/execute as @a at @s as @e[type=fishing_hook,tag=!tnt_rod,r=128] run tag @s add tnt_rod'
+    ].join('\n');
+    const copy=[
+      '/give @s fishing_rod 1',
+      '/give @s command_block 3',
+      '/tickingarea add circle ~ ~ ~ 4 rod_controller true',
+      '/execute as @a at @s as @e[type=fishing_hook,tag=!tnt_rod,r=128] at @s run summon tnt ~ ~ ~',
+      '/execute as @a at @s as @e[type=fishing_hook,tag=!tnt_rod,r=128] run tag @s add tnt_rod'
+    ].join('\n');
+    result(display,
+      '🎣 Long-distance TNT rod setup. Put the repeating command block first, then the chain command block after it. The execute context moves to each online player, so the hook can be detected far away from the controller.',
+      'Requires cheats and command blocks. The player must be online and the fishing hook must be in active simulation. A ticking area is limited to a radius of 4 chunks, so it keeps the controller running but does not make every unloaded entity simulate forever.',
+      copy);
+    return;
+  }
+
+  if(/\borbital strike\b|\bair ?strike\b/.test(x)){
+    const copy='/summon lightning_bolt ~ ~ ~\n/summon tnt ~ ~ ~\n/summon tnt ~ ~ ~';
+    result(copy,
+      'Runs a lightning + double-TNT strike at your current position. For a reusable weapon, put these commands into command blocks.',
+      'Enter multi-command sequences one line at a time in chat, or place them in command blocks.',
+      copy);
+    return;
+  }
+
+  if(/\blightning cannon\b|\blightning\b/.test(x)){
+    result('/summon lightning_bolt ~ ~ ~','Summons a lightning bolt at your current position.');
+    return;
+  }
+
+  // Check negative/clear weather BEFORE generic "rain".
+  if(/\b(clear|stop|no)\b.*\b(rain|weather)\b|\bclear weather\b/.test(x)){
+    result('/weather clear','Clears rain/snow and returns the weather to clear.');
+    return;
+  }
+
+  if(/\bthunderstorm\b|\bthunder\b/.test(x) && !/\b(no|stop|clear)\b/.test(x)){
+    result('/weather thunder','Sets the weather to thunder.');
+    return;
+  }
+
+  if(/\brain\b|\bmake it rain\b/.test(x)){
+    result('/weather rain','Sets the weather to rain (or snow in cold biomes).');
+    return;
+  }
+
+  // Teleport before generic number/item parsing.
+  if(/\bteleport\b|\btp\b/.test(x)){
+    const m=x.match(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/);
+    if(m){
+      result('/tp @s '+m[1]+' '+m[2]+' '+m[3],'Teleports you to the coordinates you entered.');
+    }else{
+      result('/tp @s ~ ~ ~','Teleport template: replace ~ ~ ~ with your desired X Y Z coordinates.');
+    }
+    return;
+  }
+
+  const itemAliases={
+    'diamond sword':'diamond_sword',
+    'sword':'diamond_sword',
+    'diamond':'diamond',
+    'diamonds':'diamond',
+    'command block':'command_block',
+    'command blocks':'command_block',
+    'stone':'stone',
+    'dirt':'dirt',
+    'cobblestone':'cobblestone',
+    'torch':'torch',
+    'torches':'torch',
+    'iron ingot':'iron_ingot',
+    'iron ingots':'iron_ingot',
+    'gold ingot':'gold_ingot',
+    'gold ingots':'gold_ingot',
+    'emerald':'emerald',
+    'emeralds':'emerald'
+  };
+
+  const itemKey=Object.keys(itemAliases).find(k=>x.includes(k));
+  if(itemKey && /\b(give|get|want|need)\b/.test(x)){
+    const amount=itemKey.includes('sword')?1:getAmount(x);
+    result('/give @s '+itemAliases[itemKey]+' '+amount,'Gives you '+amount+' '+itemKey+'.');
+    return;
+  }
+
+  if(/\bset block\b|\bplace a block\b|\bplace\b.*\bblock\b/.test(x)){
+    if(/\bdiamond block\b/.test(x)){
+      result('/setblock ~ ~ ~ diamond_block','Places a diamond block at your current position.');
+      return;
+    }
+    if(/\bgold block\b/.test(x)){
+      result('/setblock ~ ~ ~ gold_block','Places a gold block at your current position.');
+      return;
+    }
+    if(/\biron block\b/.test(x)){
+      result('/setblock ~ ~ ~ iron_block','Places an iron block at your current position.');
+      return;
+    }
+    result('/setblock ~ ~ ~ stone','Places a stone block at your current position.');
+    return;
+  }
+
+  if(/\bglass box\b|\bhollow glass\b/.test(x)){
+    result('/fill ~-3 ~ ~-3 ~3 ~4 ~3 glass 0 hollow','Builds a hollow glass box around your current position.');
+    return;
+  }
+
+  if(/\bfill\b.*\bair\b|\bremove blocks\b/.test(x)){
+    result('/fill ~-5 ~-1 ~-5 ~5 ~3 ~5 air','Replaces a small area around you with air. Change the coordinates for a larger/specific area.');
+    return;
+  }
+
+  if(/\b(speed|run fast)\b/.test(x)){
+    result('/effect @s speed 30 1 true','Gives you Speed for 30 seconds.');
+    return;
+  }
+
+  if(/\bstrength\b/.test(x)){
+    result('/effect @s strength 30 1 true','Gives you Strength for 30 seconds.');
+    return;
+  }
+
+  if(/\bnight vision\b/.test(x)){
+    result('/effect @s night_vision 300 0 true','Gives you Night Vision for 5 minutes.');
+    return;
+  }
+
+  if(/\bclear (all )?effects?\b|\bremove effects?\b/.test(x)){
+    result('/effect @s clear','Clears your active status effects.');
+    return;
+  }
+
+  if(/\bcreative\b/.test(x)){
+    result('/gamemode creative @s','Switches you to Creative mode.');
+    return;
+  }
+
+  if(/\bsurvival\b/.test(x)){
+    result('/gamemode survival @s','Switches you to Survival mode.');
+    return;
+  }
+
+  if(/\b(make it )?day\b|\bset (the )?time to day\b/.test(x) && !/\btoday\b/.test(x)){
+    result('/time set day','Sets the time to day.');
+    return;
+  }
+
+  if(/\b(make it )?night\b|\bset (the )?time to night\b/.test(x)){
+    result('/time set night','Sets the time to night.');
+    return;
+  }
+
+  if(/\bkill me\b|\bsuicide\b/.test(x)){
+    result('/kill @s','Kills your own player.');
+    return;
+  }
+
+  if(/\bkill\b.*\bzombies?\b/.test(x)){
+    result('/kill @e[type=zombie,r=20]','Kills zombies within 20 blocks of you.');
+    return;
+  }
+
+  if(/\bzombie\b/.test(x)){
+    result('/summon zombie ~ ~ ~','Summons a zombie at your current position.');
+    return;
+  }
+
+  if(/\bcreeper\b/.test(x)){
+    result('/summon creeper ~ ~ ~','Summons a creeper at your current position.');
+    return;
+  }
+
+  if(/\bskeleton\b/.test(x)){
+    result('/summon skeleton ~ ~ ~','Summons a skeleton at your current position.');
+    return;
+  }
+
+  if(/\btnt\b/.test(x)){
+    result('/summon tnt ~ ~ ~','Summons primed TNT at your current position.');
+    return;
+  }
+
+  if(/\bclear inventory\b|\bclear my inventory\b/.test(x)){
+    result('/clear @s','Clears your inventory.');
+    return;
+  }
+
+  if(/\bset (my )?spawn\b|\bspawnpoint\b/.test(x)){
+    result('/spawnpoint @s ~ ~ ~','Sets your spawn point at your current position.');
+    return;
+  }
+
+  result('/help','I do not have a built-in template for that request yet. Try one of the examples below.','This version is fully local and rule-based. It does not call an AI API.');
 }
+
 $('#generate').onclick=generate;
-request.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')generate()});
-$('#clear').onclick=()=>{request.value='';output.classList.remove('show');request.focus()};
-$('#copy').onclick=async()=>{try{await navigator.clipboard.writeText(command.textContent);$('#copy').textContent='Copied!';setTimeout(()=>$('#copy').textContent='Copy',1200)}catch(e){alert('Copy failed. Select the command and copy it manually.')}};
-document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{request.value=c.dataset.q;generate()});
+request.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){
+    e.preventDefault();
+    generate();
+  }
+});
+$('#clear').onclick=()=>{
+  request.value='';
+  output.classList.remove('show');
+  currentCopyText='';
+  request.focus();
+};
+copyButton.onclick=copyCommands;
+$('#clearHistory').onclick=()=>{
+  items=[];
+  saveHistory();
+  renderHistory();
+};
+
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
+  request.value=c.dataset.q;
+  generate();
+});
+
 renderHistory();
 </script>
 </body>
