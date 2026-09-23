@@ -70,7 +70,7 @@ function generate(){
    result('/give @s fishing_rod 1\n/give @s command_block 3\n/tickingarea add circle ~ ~ ~ 4 rod_controller true\n\n[Repeating Command Block — Always Active]\n/execute as @a at @s as @e[type=fishing_hook,tag=!tnt_rod,r=128] at @s run summon tnt ~ ~ ~\n\n[Chain Command Block — Always Active]\n/execute as @a at @s as @e[type=fishing_hook,tag=!tnt_rod,r=128] run tag @s add tnt_rod',
    '🎣 True long-distance TNT rod: the controller follows every online player with /execute as @a at @s, then finds nearby fishing hooks and summons TNT at each hook. Because the command block itself is kept running by a ticking area, you can travel far from where you first placed it.',
    'This is designed for long-distance use, including roughly 1,000+ blocks away. Cheats/command blocks are required. The player must be online and the fishing hook must be in the active simulation area; the ticking area keeps the controller running, but it does not make an unloaded hook simulate forever. Ticking areas are limited to a radius of 4 chunks.'); 
- } else } else if(/orbital strike|airstrike|air strike/.test(x)){
+ else if(/orbital strike|airstrike|air strike/.test(x)){
    result('/summon lightning_bolt ~ ~ ~\n/summon tnt ~ ~ ~\n/summon tnt ~ ~ ~',
    'A simple Bedrock-friendly strike sequence. Run the three commands in order at the target location.',
    'For a real reusable cannon, put these commands in command blocks or a function and trigger them from a button/lever.');
