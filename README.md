@@ -1,0 +1,1 @@
+# bedrock-command-generator
