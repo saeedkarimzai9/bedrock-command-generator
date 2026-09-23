@@ -196,7 +196,7 @@ function generate(){
     return;
   }
 
-  if(/\bthunderstorm\b|\bthunder\b/.test(x) && !/\b(no|stop|clear)\b/.test(x)){
+  if((/\bthunderstorm\b|\bthunder\b/).test(x) && !/\b(no|stop|clear)\b/.test(x)){
     result('/weather thunder','Sets the weather to thunder.');
     return;
   }
@@ -301,7 +301,7 @@ function generate(){
     return;
   }
 
-  if(/\b(make it )?day\b|\bset (the )?time to day\b/.test(x) && !/\btoday\b/.test(x)){
+  if((/\b(make it )?day\b|\bset (the )?time to day\b/).test(x) && !/\btoday\b/.test(x)){
     result('/time set day','Sets the time to day.');
     return;
   }
